@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Euclidean Rhythm Machine</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08080e;color:#d0d0d8;font-family:'SF Mono','Fira Code','Cascadia Code',monospace;overflow:hidden;height:100vh;display:flex}
+canvas{flex:1 1 0;display:block;cursor:crosshair;min-width:0;width:0}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+#panel{width:330px;min-width:330px;flex-shrink:0;height:100vh;overflow-y:auto;background:rgba(12,12,20,.92);backdrop-filter:blur(24px);border-left:1px solid rgba(255,255,255,.08);padding:16px 14px;display:flex;flex-direction:column;gap:10px;z-index:10}
+h1{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#888;text-align:center;padding:4px 0 2px}
+.subtitle{font-size:10px;letter-spacing:1px;color:#555;text-align:center;margin-bottom:4px}
+.transport{display:flex;gap:8px;justify-content:center;margin:4px 0}
+.btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#ccc;padding:7px 16px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:1px;transition:all .15s}
+.btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)}
+.btn.active{background:rgba(0,255,136,.15);border-color:rgba(0,255,136,.4);color:#0f8}
+.btn.accent{background:rgba(255,100,50,.12);border-color:rgba(255,100,50,.3);color:#f84}
+.global-controls{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.control-row{display:flex;align-items:center;gap:8px;font-size:11px}
+.control-row label{width:50px;color:#777;text-transform:uppercase;font-size:9px;letter-spacing:1px}
+.control-row input[type=range]{flex:1;-webkit-appearance:none;background:rgba(255,255,255,.08);height:3px;border-radius:2px;outline:none}
+.control-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;cursor:pointer;border:2px solid #333}
+.control-row .val{width:36px;text-align:right;font-size:11px;color:#aaa;font-variant-numeric:tabular-nums}
+.track{padding:10px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05)}
+.track-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.track-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.track-name{font-size:11px;letter-spacing:2px;flex:1}
+.mute-btn{font-size:9px;padding:2px 8px;border-radius:4px;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:transparent;color:#888;font-family:inherit;letter-spacing:1px}
+.mute-btn.muted{background:rgba(255,50,50,.2);border-color:rgba(255,50,50,.4);color:#f55}
+.pattern-dots{display:flex;gap:2px;margin:4px 0 8px;flex-wrap:wrap}
+.pdot{width:7px;height:7px;border-radius:50%;border:1px solid rgba(255,255,255,.15);transition:all .15s}
+.pdot.on{border-color:transparent}
+.track .control-row label{width:36px}
+.presets{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)}
+.presets .btn{font-size:10px;padding:5px 10px}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.actions .btn{flex:1;text-align:center;min-width:80px}
+.info{font-size:9px;color:#444;text-align:center;padding:8px 0 4px;letter-spacing:1px}
+.lang-switch{display:flex;gap:0;justify-content:center;margin-bottom:2px}
+.lang-btn{background:transparent;border:1px solid rgba(255,255,255,.1);color:#555;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:1.5px;transition:all .15s}
+.lang-btn:first-child{border-radius:4px 0 0 4px}
+.lang-btn:last-child{border-radius:0 4px 4px 0}
+.lang-btn.active{background:rgba(255,255,255,.1);color:#ccc;border-color:rgba(255,255,255,.2)}
+.guide{border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden;margin-bottom:2px}
+.guide summary{cursor:pointer;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#777;padding:9px 12px;background:rgba(255,255,255,.02);list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+.guide summary::-webkit-details-marker{display:none}
+.guide summary::before{content:'\25B8';font-size:9px;transition:transform .2s;display:inline-block;width:10px}
+.guide[open] summary::before{transform:rotate(90deg)}
+.guide summary:hover{background:rgba(255,255,255,.05)}
+.guide-body{padding:8px 12px 10px;font-size:10.5px;line-height:1.65;color:#999;border-top:1px solid rgba(255,255,255,.04)}
+.guide-body p{margin-bottom:6px}
+.guide-body p:last-child{margin-bottom:0}
+.guide-body strong{color:#ccc;font-weight:500}
+.guide-body .example{background:rgba(255,255,255,.03);border-radius:4px;padding:5px 8px;margin:4px 0 6px;font-size:10px;color:#aaa;line-height:1.5}
+.guide-body kbd{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:3px;padding:1px 5px;font-size:9px;font-family:inherit;color:#ccc}
+.guide-body .color-dot{display:inline-block;width:7px;height:7px;border-radius:50%;vertical-align:middle;margin-right:3px}
+@media(max-width:768px){
+  body{flex-direction:column}
+  canvas{height:55vh;flex:none}
+  #panel{width:100%;height:45vh}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel"></div>
+<script>
+// ═══════════════════════════════════════════
+//  EUCLIDEAN RHYTHM MACHINE
+//  Bjorklund/Toussaint algorithm + Web Audio
+// ═══════════════════════════════════════════
+
+// ── Bjorklund Algorithm ──
+function euclidean(k, n) {
+  if (k >= n) return Array(n).fill(1);
+  if (k <= 0) return Array(n).fill(0);
+  let f = Array.from({length: k}, () => [1]);
+  let b = Array.from({length: n - k}, () => [0]);
+  while (b.length > 1) {
+    const m = Math.min(f.length, b.length);
+    const merged = [];
+    for (let i = 0; i < m; i++) merged.push([...f[i], ...b[i]]);
+    const rem = f.length > b.length ? f.slice(m) : b.slice(m);
+    f = merged;
+    b = rem;
+  }
+  return [...f, ...b].flat();
+}
+
+function rotateArray(arr, r) {
+  const n = arr.length;
+  const rot = ((r % n) + n) % n;
+  return [...arr.slice(rot), ...arr.slice(0, rot)];
+}
+
+// ── State ──
+const COLORS = ['#00e5ff', '#ff00e5', '#00ff88', '#ff8c00', '#b366ff'];
+const NAMES = ['KICK', 'SNARE', 'HI-HAT', 'RIM', 'CLAP'];
+
+const tracks = NAMES.map((name, i) => ({
+  name, color: COLORS[i],
+  beats: [4, 2, 8, 3, 2][i],
+  steps: 16, rotation: [0, 4, 0, 2, 8][i],
+  volume: [0.8, 0.7, 0.4, 0.5, 0.6][i],
+  pan: [0, 0, 0.3, -0.3, 0][i],
+  muted: false,
+  pattern: [],
+  currentStep: -1,
+  triggerTime: 0
+}));
+
+// ── i18n ──
+let lang = 'pl';
+const I18N = {
+  title:           { pl: 'Euclidean Rhythms',   en: 'Euclidean Rhythms' },
+  subtitle:        { pl: 'ALGORYTM BJORKLUNDA \u00B7 WEB AUDIO', en: 'BJORKLUND ALGORITHM \u00B7 WEB AUDIO' },
+  play:            { pl: '\u25B6 START',  en: '\u25B6 PLAY' },
+  stop:            { pl: '\u25A0 STOP',   en: '\u25A0 STOP' },
+  tap:             { pl: 'TAP',           en: 'TAP' },
+  mute:            { pl: 'WYC',           en: 'MUTE' },
+  muted:           { pl: 'WYCISZ',        en: 'MUTED' },
+  presets:         { pl: 'PRESETY',        en: 'PRESETS' },
+  random:          { pl: '\u2684 LOSUJ',   en: '\u2684 RANDOM' },
+  mutate:          { pl: '\u2672 MUTUJ',   en: '\u2672 MUTATE' },
+  stepLabel:       { pl: 'KROK',           en: 'STEP' },
+  shortcuts:       { pl: 'SPACJA = start/stop \u00B7 R = losuj \u00B7 M = mutuj \u00B7 T = tap tempo',
+                     en: 'SPACE = play/stop \u00B7 R = random \u00B7 M = mutate \u00B7 T = tap tempo' },
+  guideWhatTitle:  { pl: 'Czym jest rytm euklidesowy?',  en: 'What is a Euclidean rhythm?' },
+  guideWhatBody:   {
+    pl: `<p>Rytm euklidesowy to spos\u00F3b na <strong>r\u00F3wnomierne rozmieszczenie K uderze\u0144 na N krokach</strong>, oparty na algorytmie Euklidesa (tym samym, kt\u00F3ry liczy NWD).</p>
+<p>W 2005 roku Godfried Toussaint odkry\u0142, \u017Ce wi\u0119kszo\u015B\u0107 tradycyjnych rytm\u00F3w \u015Bwiata to rytmy euklidesowe:</p>
+<div class="example">E(3,8) = \u25CF\u25CB\u25CB\u25CF\u25CB\u25CB\u25CF\u25CB \u2014 cuba\u0144skie <strong>tresillo</strong><br>
+E(4,12) = \u25CF\u25CB\u25CB\u25CF\u25CB\u25CB\u25CF\u25CB\u25CB\u25CF\u25CB\u25CB \u2014 <strong>afrobeat</strong><br>
+E(5,8) = \u25CF\u25CB\u25CF\u25CF\u25CB\u25CF\u25CF\u25CB \u2014 kuba\u0144skie <strong>cinquillo</strong></div>
+<p>Ka\u017Cdy pier\u015Bcie\u0144 na wizualizacji to osobny instrument. Aktywne bity \u0142\u0105cz\u0105 si\u0119 w geometryczne wielok\u0105ty \u2014 3 bity tworz\u0105 tr\u00F3jk\u0105t, 5 bit\u00F3w pi\u0119ciok\u0105t itd.</p>`,
+    en: `<p>A Euclidean rhythm is a way to <strong>evenly distribute K beats across N steps</strong>, based on the Euclidean algorithm (the same one that computes GCD).</p>
+<p>In 2005 Godfried Toussaint discovered that most traditional world rhythms are Euclidean rhythms:</p>
+<div class="example">E(3,8) = \u25CF\u25CB\u25CB\u25CF\u25CB\u25CB\u25CF\u25CB \u2014 Cuban <strong>tresillo</strong><br>
+E(4,12) = \u25CF\u25CB\u25CB\u25CF\u25CB\u25CB\u25CF\u25CB\u25CB\u25CF\u25CB\u25CB \u2014 <strong>Afrobeat</strong><br>
+E(5,8) = \u25CF\u25CB\u25CF\u25CF\u25CB\u25CF\u25CF\u25CB \u2014 Cuban <strong>cinquillo</strong></div>
+<p>Each ring in the visualization is a separate instrument. Active beats connect to form geometric polygons \u2014 3 beats make a triangle, 5 beats a pentagon, etc.</p>`
+  },
+  guideCtrlTitle:  { pl: 'Sterowanie', en: 'Controls' },
+  guideCtrlBody:   {
+    pl: `<p><strong>Globalne:</strong></p>
+<p><kbd>SPACJA</kbd> start / stop &nbsp;\u2022&nbsp; <kbd>R</kbd> losowy pattern &nbsp;\u2022&nbsp; <kbd>M</kbd> mutacja &nbsp;\u2022&nbsp; <kbd>T</kbd> tap tempo</p>
+<p><strong>BPM</strong> \u2014 tempo w uderzeniach na minut\u0119 (40\u2013200)<br>
+<strong>SWING</strong> \u2014 przesuwa co drugi krok w stron\u0119 tripletowego feelu</p>
+<p style="margin-top:6px"><strong>Ka\u017Cdy track:</strong></p>
+<p><strong>BEAT</strong> \u2014 ilo\u015B\u0107 uderze\u0144 (K) do rozmieszczenia<br>
+<strong>STEP</strong> \u2014 d\u0142ugo\u015B\u0107 p\u0119tli (N krok\u00F3w, 2\u201332)<br>
+<strong>ROT</strong> \u2014 rotacja wzorca (przesuwa start)<br>
+<strong>VOL</strong> \u2014 g\u0142o\u015Bno\u015B\u0107 &nbsp;\u2022&nbsp; <strong>PAN</strong> \u2014 panorama stereo<br>
+<strong>MUTE</strong> \u2014 wycisza dany track</p>
+<p style="margin-top:4px"><strong>TAP</strong> \u2014 klikaj w rytm, aby ustawi\u0107 BPM</p>
+<p><strong>LOSUJ</strong> \u2014 losuje nowy zestaw parametr\u00F3w<br>
+<strong>MUTUJ</strong> \u2014 lekko modyfikuje bie\u017C\u0105cy pattern (\u00B11 beat/rot/step na losowym tracku)</p>`,
+    en: `<p><strong>Global:</strong></p>
+<p><kbd>SPACE</kbd> play / stop &nbsp;\u2022&nbsp; <kbd>R</kbd> randomize &nbsp;\u2022&nbsp; <kbd>M</kbd> mutate &nbsp;\u2022&nbsp; <kbd>T</kbd> tap tempo</p>
+<p><strong>BPM</strong> \u2014 tempo in beats per minute (40\u2013200)<br>
+<strong>SWING</strong> \u2014 shifts every other step toward a triplet feel</p>
+<p style="margin-top:6px"><strong>Per track:</strong></p>
+<p><strong>BEAT</strong> \u2014 number of beats (K) to distribute<br>
+<strong>STEP</strong> \u2014 loop length (N steps, 2\u201332)<br>
+<strong>ROT</strong> \u2014 pattern rotation (shifts the start)<br>
+<strong>VOL</strong> \u2014 volume &nbsp;\u2022&nbsp; <strong>PAN</strong> \u2014 stereo panning<br>
+<strong>MUTE</strong> \u2014 mute this track</p>
+<p style="margin-top:4px"><strong>TAP</strong> \u2014 tap in rhythm to set BPM</p>
+<p><strong>RANDOM</strong> \u2014 randomizes all parameters<br>
+<strong>MUTATE</strong> \u2014 slightly modifies the current pattern (\u00B11 beat/rot/step on a random track)</p>`
+  },
+  guidePreTitle:   { pl: 'Presety', en: 'Presets' },
+  guidePreBody:    {
+    pl: `<p>Kliknij nazw\u0119 presetu poni\u017Cej, aby za\u0142adowa\u0107 gotowy zestaw rytm\u00F3w. Ka\u017Cdy ustawia BPM, liczb\u0119 krok\u00F3w i rozk\u0142ad beat\u00F3w na wszystkich 5 trackach:</p>
+<div class="example"><strong>Bossa Nova</strong> \u2014 110 BPM, 16 krok\u00F3w, mi\u0119kki brazylijski groove<br>
+<strong>Drum & Bass</strong> \u2014 170 BPM, \u0142amane breakbeaty<br>
+<strong>Afrobeat</strong> \u2014 115 BPM, 12 krok\u00F3w, polirytmia zachodnioafryka\u0144ska<br>
+<strong>Techno</strong> \u2014 130 BPM, klasyczny four-on-the-floor<br>
+<strong>Balkan</strong> \u2014 140 BPM, 9 krok\u00F3w, asymetryczne metrum<br>
+<strong>Minimal</strong> \u2014 122 BPM, oszcz\u0119dna elektronika</div>
+<p>Po za\u0142adowaniu presetu mo\u017Cesz dowolnie modyfikowa\u0107 parametry suwak\u00F3w. Spr\u00F3buj te\u017C <strong>MUTUJ</strong> na ulubionym presecie!</p>`,
+    en: `<p>Click a preset name below to load a ready-made rhythm set. Each one configures BPM, step count and beat distribution across all 5 tracks:</p>
+<div class="example"><strong>Bossa Nova</strong> \u2014 110 BPM, 16 steps, soft Brazilian groove<br>
+<strong>Drum & Bass</strong> \u2014 170 BPM, broken breakbeats<br>
+<strong>Afrobeat</strong> \u2014 115 BPM, 12 steps, West African polyrhythm<br>
+<strong>Techno</strong> \u2014 130 BPM, classic four-on-the-floor<br>
+<strong>Balkan</strong> \u2014 140 BPM, 9 steps, asymmetric meter<br>
+<strong>Minimal</strong> \u2014 122 BPM, sparse electronics</div>
+<p>After loading a preset you can freely tweak all parameters. Try <strong>MUTATE</strong> on your favorite preset!</p>`
+  },
+};
+function t(key) { return I18N[key] ? (I18N[key][lang] || I18N[key].en) : key; }
+
+let audioCtx = null, compressor = null, noiseBuffer = null;
+let isPlaying = false, bpm = 120, swing = 0;
+let globalStep = 0, nextStepTime = 0, schedulerTimer = null;
+const visualQueue = [];
+const particles = [];
+const ripples = [];
+let stars = [];
+let tapTimes = [];
+
+// ── Update Patterns ──
+function updateAllPatterns() {
+  tracks.forEach(t => {
+    t.pattern = rotateArray(euclidean(t.beats, t.steps), t.rotation);
+  });
+  updatePatternDots();
+}
+
+// ── Audio Init ──
+function initAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  compressor = audioCtx.createDynamicsCompressor();
+  compressor.threshold.value = -12;
+  compressor.knee.value = 6;
+  compressor.ratio.value = 4;
+  compressor.connect(audioCtx.destination);
+
+  const len = audioCtx.sampleRate;
+  noiseBuffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+}
+
+function makeNoise(time, duration) {
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuffer;
+  src.start(time);
+  src.stop(time + duration);
+  return src;
+}
+
+function makePanner(pan) {
+  const p = audioCtx.createStereoPanner();
+  p.pan.value = pan;
+  return p;
+}
+
+// ── Sound Synthesis ──
+function playKick(time, vol, pan) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  const p = makePanner(pan);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(160, time);
+  osc.frequency.exponentialRampToValueAtTime(35, time + 0.08);
+  g.gain.setValueAtTime(vol, time);
+  g.gain.setValueAtTime(vol * 0.8, time + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+  osc.connect(g); g.connect(p); p.connect(compressor);
+  osc.start(time); osc.stop(time + 0.35);
+
+  // Sub layer
+  const sub = audioCtx.createOscillator();
+  const sg = audioCtx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(60, time);
+  sg.gain.setValueAtTime(vol * 0.6, time);
+  sg.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+  sub.connect(sg); sg.connect(p);
+  sub.start(time); sub.stop(time + 0.25);
+}
+
+function playSnare(time, vol, pan) {
+  const p = makePanner(pan);
+
+  // Noise
+  const ns = makeNoise(time, 0.18);
+  const nf = audioCtx.createBiquadFilter();
+  nf.type = 'highpass'; nf.frequency.value = 2000;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(vol * 0.6, time);
+  ng.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  ns.connect(nf); nf.connect(ng); ng.connect(p); p.connect(compressor);
+
+  // Body
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(200, time);
+  osc.frequency.exponentialRampToValueAtTime(120, time + 0.04);
+  const og = audioCtx.createGain();
+  og.gain.setValueAtTime(vol * 0.5, time);
+  og.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+  osc.connect(og); og.connect(p);
+  osc.start(time); osc.stop(time + 0.06);
+}
+
+function playHihat(time, vol, pan) {
+  const p = makePanner(pan);
+  const ns = makeNoise(time, 0.06);
+  const f = audioCtx.createBiquadFilter();
+  f.type = 'highpass'; f.frequency.value = 7000;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol * 0.35, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+  ns.connect(f); f.connect(g); g.connect(p); p.connect(compressor);
+}
+
+function playRimshot(time, vol, pan) {
+  const p = makePanner(pan);
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(820, time);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol * 0.45, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+  osc.connect(g); g.connect(p); p.connect(compressor);
+  osc.start(time); osc.stop(time + 0.03);
+
+  const ns = makeNoise(time, 0.025);
+  const nf = audioCtx.createBiquadFilter();
+  nf.type = 'bandpass'; nf.frequency.value = 3500; nf.Q.value = 2;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(vol * 0.3, time);
+  ng.gain.exponentialRampToValueAtTime(0.001, time + 0.02);
+  ns.connect(nf); nf.connect(ng); ng.connect(p);
+}
+
+function playClap(time, vol, pan) {
+  const p = makePanner(pan);
+  p.connect(compressor);
+
+  for (let i = 0; i < 3; i++) {
+    const ns = makeNoise(time + i * 0.008, 0.04);
+    const f = audioCtx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 2200; f.Q.value = 0.8;
+    const g = audioCtx.createGain();
+    const t = time + i * 0.008;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol * 0.4, t + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+    ns.connect(f); f.connect(g); g.connect(p);
+  }
+
+  const tail = makeNoise(time + 0.025, 0.18);
+  const tf = audioCtx.createBiquadFilter();
+  tf.type = 'highpass'; tf.frequency.value = 1200;
+  const tg = audioCtx.createGain();
+  tg.gain.setValueAtTime(vol * 0.25, time + 0.025);
+  tg.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+  tail.connect(tf); tf.connect(tg); tg.connect(p);
+}
+
+const PLAY_FN = [playKick, playSnare, playHihat, playRimshot, playClap];
+
+// ── Sequencer ──
+function startSequencer() {
+  if (!audioCtx) initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  isPlaying = true;
+  globalStep = 0;
+  tracks.forEach(t => { t.currentStep = -1; t.triggerTime = 0; });
+  nextStepTime = audioCtx.currentTime + 0.05;
+  schedule();
+  updatePlayBtn();
+}
+
+function stopSequencer() {
+  isPlaying = false;
+  if (schedulerTimer) clearTimeout(schedulerTimer);
+  schedulerTimer = null;
+  globalStep = 0;
+  tracks.forEach(t => { t.currentStep = -1; });
+  updatePlayBtn();
+}
+
+function togglePlay() {
+  isPlaying ? stopSequencer() : startSequencer();
+}
+
+function schedule() {
+  if (!isPlaying) return;
+  const now = audioCtx.currentTime;
+  while (nextStepTime < now + 0.1) {
+    tracks.forEach((t, i) => {
+      if (t.muted) return;
+      const step = globalStep % t.steps;
+      if (t.pattern[step]) {
+        PLAY_FN[i](nextStepTime, t.volume, t.pan);
+      }
+      visualQueue.push({ track: i, step, beat: t.pattern[step], time: nextStepTime });
+    });
+
+    const base = 60 / bpm / 4;
+    const sw = swing * 0.33;
+    nextStepTime += (globalStep % 2 === 0) ? base * (1 + sw) : base * (1 - sw);
+    globalStep++;
+  }
+  schedulerTimer = setTimeout(schedule, 20);
+}
+
+// ── Visual System ──
+function spawnParticles(trackIdx, x, y) {
+  const color = tracks[trackIdx].color;
+  const count = trackIdx === 0 ? 12 : 7;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 0.5 + Math.random() * 2.5;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.02,
+      size: 1.5 + Math.random() * 2.5,
+      color
+    });
+  }
+}
+
+function spawnRipple(cx, cy) {
+  ripples.push({ x: cx, y: cy, radius: 10, maxRadius: 200, alpha: 0.4, speed: 3 });
+}
+
+// ── Canvas ──
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, CX, CY;
+
+function resize() {
+  const r = devicePixelRatio || 1;
+  W = canvas.clientWidth;
+  H = canvas.clientHeight;
+  canvas.width = W * r;
+  canvas.height = H * r;
+  ctx.setTransform(r, 0, 0, r, 0, 0);
+  CX = W / 2;
+  CY = H / 2;
+  genStars();
+}
+
+function genStars() {
+  stars = [];
+  for (let i = 0; i < 180; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      s: Math.random() * 1.2 + 0.3,
+      a: Math.random(),
+      speed: 0.003 + Math.random() * 0.008
+    });
+  }
+}
+
+let frameTime = 0;
+function render(ts) {
+  frameTime = ts;
+  const now = audioCtx ? audioCtx.currentTime : 0;
+
+  // Process visual queue
+  while (visualQueue.length && visualQueue[0].time <= now) {
+    const ev = visualQueue.shift();
+    const t = tracks[ev.track];
+    t.currentStep = ev.step;
+    t.triggerTime = now;
+
+    if (ev.beat) {
+      const maxR = Math.min(W, H) * 0.38;
+      const spacing = maxR / (tracks.length + 1);
+      const radius = spacing * (ev.track + 1.5);
+      const angle = (ev.step / t.steps) * Math.PI * 2 - Math.PI / 2;
+      const px = CX + Math.cos(angle) * radius;
+      const py = CY + Math.sin(angle) * radius;
+      spawnParticles(ev.track, px, py);
+      if (ev.track === 0) spawnRipple(CX, CY);
+    }
+  }
+
+  // Clear
+  ctx.fillStyle = '#08080e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  const time = ts * 0.001;
+  ctx.save();
+  stars.forEach(s => {
+    const a = (Math.sin(time * s.speed * 60 + s.a * 100) * 0.5 + 0.5) * 0.6 + 0.1;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  });
+  ctx.restore();
+
+  // Ripples
+  ctx.save();
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.radius += r.speed;
+    r.alpha *= 0.96;
+    if (r.alpha < 0.01) { ripples.splice(i, 1); continue; }
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0, 229, 255, ${r.alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Rings
+  const maxR = Math.min(W, H) * 0.38;
+  const spacing = maxR / (tracks.length + 1);
+
+  tracks.forEach((t, ti) => {
+    const radius = spacing * (ti + 1.5);
+    const timeSince = now - t.triggerTime;
+    const pulse = Math.max(0, 1 - timeSince * 6);
+
+    // Ring guide
+    ctx.beginPath();
+    ctx.arc(CX, CY, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = t.color + '12';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Connections polygon
+    const activePos = [];
+    for (let i = 0; i < t.steps; i++) {
+      if (t.pattern[i]) {
+        const a = (i / t.steps) * Math.PI * 2 - Math.PI / 2;
+        activePos.push({ x: CX + Math.cos(a) * radius, y: CY + Math.sin(a) * radius });
+      }
+    }
+    if (activePos.length >= 3) {
+      ctx.beginPath();
+      ctx.moveTo(activePos[0].x, activePos[0].y);
+      activePos.forEach((p, i) => { if (i > 0) ctx.lineTo(p.x, p.y); });
+      ctx.closePath();
+      ctx.fillStyle = t.color + '06';
+      ctx.fill();
+      ctx.strokeStyle = t.color + (t.muted ? '08' : '20');
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    } else if (activePos.length === 2) {
+      ctx.beginPath();
+      ctx.moveTo(activePos[0].x, activePos[0].y);
+      ctx.lineTo(activePos[1].x, activePos[1].y);
+      ctx.strokeStyle = t.color + '20';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    // Steps
+    for (let i = 0; i < t.steps; i++) {
+      const a = (i / t.steps) * Math.PI * 2 - Math.PI / 2;
+      const x = CX + Math.cos(a) * radius;
+      const y = CY + Math.sin(a) * radius;
+      const isActive = t.pattern[i];
+      const isCurrent = isPlaying && i === t.currentStep;
+
+      if (isActive) {
+        const glow = isCurrent ? 18 + pulse * 12 : 8;
+        const sz = isCurrent ? 5 + pulse * 4 : 4;
+        ctx.save();
+        ctx.shadowColor = t.muted ? '#333' : t.color;
+        ctx.shadowBlur = t.muted ? 0 : glow;
+        ctx.beginPath();
+        ctx.arc(x, y, sz, 0, Math.PI * 2);
+        ctx.fillStyle = t.muted ? '#444' : t.color;
+        ctx.fill();
+        ctx.restore();
+      } else {
+        const sz = isCurrent ? 2.5 : 1.8;
+        ctx.beginPath();
+        ctx.arc(x, y, sz, 0, Math.PI * 2);
+        ctx.fillStyle = (isCurrent && !t.muted) ? t.color + '60' : t.color + '18';
+        ctx.fill();
+      }
+    }
+  });
+
+  // Particles
+  ctx.save();
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.97;
+    p.vy *= 0.97;
+    p.life -= p.decay;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ctx.globalAlpha = p.life * 0.8;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Center metronome
+  const centerPulse = tracks[0].currentStep >= 0 ? Math.max(0, 1 - (now - tracks[0].triggerTime) * 5) : 0;
+  const cR = 12 + centerPulse * 10;
+  ctx.save();
+  ctx.shadowColor = '#00e5ff';
+  ctx.shadowBlur = 15 + centerPulse * 25;
+  ctx.beginPath();
+  ctx.arc(CX, CY, cR, 0, Math.PI * 2);
+  const cGrad = ctx.createRadialGradient(CX, CY, 0, CX, CY, cR);
+  cGrad.addColorStop(0, `rgba(0, 229, 255, ${0.6 + centerPulse * 0.4})`);
+  cGrad.addColorStop(1, `rgba(0, 229, 255, ${0.1 + centerPulse * 0.2})`);
+  ctx.fillStyle = cGrad;
+  ctx.fill();
+  ctx.restore();
+
+  // Info overlay
+  if (isPlaying) {
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${bpm} BPM`, 14, H - 14);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${t('stepLabel')} ${(globalStep % 16) + 1}`, W - 14, H - 14);
+  }
+
+  requestAnimationFrame(render);
+}
+
+// ── Presets ──
+const PRESETS = {
+  'Bossa Nova': { bpm: 110, steps: 16, tracks: [
+    { b: 3, s: 16, r: 0 }, { b: 5, s: 16, r: 8 }, { b: 9, s: 16, r: 0 },
+    { b: 7, s: 16, r: 2 }, { b: 2, s: 16, r: 4 }
+  ]},
+  'Drum & Bass': { bpm: 170, steps: 16, tracks: [
+    { b: 3, s: 16, r: 0 }, { b: 2, s: 16, r: 8 }, { b: 11, s: 16, r: 0 },
+    { b: 5, s: 16, r: 3 }, { b: 1, s: 16, r: 12 }
+  ]},
+  'Afrobeat': { bpm: 115, steps: 12, tracks: [
+    { b: 4, s: 12, r: 0 }, { b: 3, s: 12, r: 3 }, { b: 7, s: 12, r: 0 },
+    { b: 5, s: 12, r: 1 }, { b: 2, s: 12, r: 6 }
+  ]},
+  'Techno': { bpm: 130, steps: 16, tracks: [
+    { b: 4, s: 16, r: 0 }, { b: 2, s: 16, r: 4 }, { b: 8, s: 16, r: 1 },
+    { b: 3, s: 16, r: 2 }, { b: 2, s: 16, r: 8 }
+  ]},
+  'Balkan': { bpm: 140, steps: 9, tracks: [
+    { b: 4, s: 9, r: 0 }, { b: 2, s: 9, r: 2 }, { b: 5, s: 9, r: 0 },
+    { b: 3, s: 9, r: 1 }, { b: 2, s: 9, r: 4 }
+  ]},
+  'Minimal': { bpm: 122, steps: 16, tracks: [
+    { b: 4, s: 16, r: 0 }, { b: 1, s: 16, r: 4 }, { b: 6, s: 16, r: 0 },
+    { b: 2, s: 16, r: 6 }, { b: 1, s: 16, r: 12 }
+  ]},
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  bpm = p.bpm;
+  p.tracks.forEach((pt, i) => {
+    tracks[i].beats = pt.b;
+    tracks[i].steps = pt.s;
+    tracks[i].rotation = pt.r;
+    tracks[i].muted = false;
+  });
+  updateAllPatterns();
+  buildTrackUI();
+  updateGlobalUI();
+}
+
+function randomize() {
+  const stepOptions = [8, 9, 12, 16];
+  bpm = 80 + Math.floor(Math.random() * 100);
+  tracks.forEach(t => {
+    t.steps = stepOptions[Math.floor(Math.random() * stepOptions.length)];
+    t.beats = 1 + Math.floor(Math.random() * Math.floor(t.steps * 0.6));
+    t.rotation = Math.floor(Math.random() * t.steps);
+    t.muted = false;
+  });
+  updateAllPatterns();
+  buildTrackUI();
+  updateGlobalUI();
+}
+
+function mutate() {
+  const idx = Math.floor(Math.random() * tracks.length);
+  const t = tracks[idx];
+  const action = Math.random();
+  if (action < 0.4) {
+    t.beats = Math.max(0, Math.min(t.steps, t.beats + (Math.random() < 0.5 ? 1 : -1)));
+  } else if (action < 0.7) {
+    t.rotation = (t.rotation + 1) % t.steps;
+  } else {
+    const newSteps = Math.max(2, Math.min(32, t.steps + (Math.random() < 0.5 ? 1 : -1)));
+    t.steps = newSteps;
+    t.beats = Math.min(t.beats, newSteps);
+    t.rotation = t.rotation % newSteps;
+  }
+  updateAllPatterns();
+  buildTrackUI();
+}
+
+// ── Tap Tempo ──
+function tapTempo() {
+  const now = performance.now();
+  tapTimes.push(now);
+  if (tapTimes.length > 5) tapTimes.shift();
+  if (tapTimes.length >= 2) {
+    let sum = 0;
+    for (let i = 1; i < tapTimes.length; i++) sum += tapTimes[i] - tapTimes[i - 1];
+    const avg = sum / (tapTimes.length - 1);
+    bpm = Math.round(Math.min(200, Math.max(40, 60000 / avg)));
+    updateGlobalUI();
+  }
+  // Reset if too long since last tap
+  setTimeout(() => {
+    if (tapTimes.length && performance.now() - tapTimes[tapTimes.length - 1] > 2500) {
+      tapTimes = [];
+    }
+  }, 2500);
+}
+
+// ── UI Building ──
+const panel = document.getElementById('panel');
+let trackContainer = null;
+
+function setLang(l) {
+  lang = l;
+  buildUI();
+}
+
+function buildUI() {
+  panel.innerHTML = '';
+
+  // Language switch
+  const langSwitch = document.createElement('div');
+  langSwitch.className = 'lang-switch';
+  ['PL', 'EN'].forEach(l => {
+    const b = document.createElement('button');
+    b.className = 'lang-btn' + (lang === l.toLowerCase() ? ' active' : '');
+    b.textContent = l;
+    b.onclick = () => setLang(l.toLowerCase());
+    langSwitch.appendChild(b);
+  });
+  panel.appendChild(langSwitch);
+
+  // Header
+  const h = document.createElement('h1');
+  h.textContent = t('title');
+  panel.appendChild(h);
+  const sub = document.createElement('div');
+  sub.className = 'subtitle';
+  sub.textContent = t('subtitle');
+  panel.appendChild(sub);
+
+  // Guide sections
+  const guideWrap = document.createElement('div');
+  guideWrap.innerHTML = `
+    <details class="guide" open>
+      <summary>${t('guideWhatTitle')}</summary>
+      <div class="guide-body">${t('guideWhatBody')}</div>
+    </details>
+    <details class="guide">
+      <summary>${t('guideCtrlTitle')}</summary>
+      <div class="guide-body">${t('guideCtrlBody')}</div>
+    </details>
+    <details class="guide">
+      <summary>${t('guidePreTitle')}</summary>
+      <div class="guide-body">${t('guidePreBody')}</div>
+    </details>
+  `;
+  panel.appendChild(guideWrap);
+
+  // Transport
+  const transport = document.createElement('div');
+  transport.className = 'transport';
+  const playBtn = document.createElement('button');
+  playBtn.className = 'btn' + (isPlaying ? ' active' : '');
+  playBtn.id = 'playBtn';
+  playBtn.textContent = isPlaying ? t('stop') : t('play');
+  playBtn.onclick = togglePlay;
+  transport.appendChild(playBtn);
+
+  const tapBtn = document.createElement('button');
+  tapBtn.className = 'btn';
+  tapBtn.textContent = t('tap');
+  tapBtn.onclick = tapTempo;
+  transport.appendChild(tapBtn);
+  panel.appendChild(transport);
+
+  // Global controls
+  const gc = document.createElement('div');
+  gc.className = 'global-controls';
+  gc.appendChild(makeSlider('BPM', 40, 200, bpm, 1, v => { bpm = v; }));
+  gc.appendChild(makeSlider('SWING', 0, 100, swing * 100, 1, v => { swing = v / 100; }, v => v + '%'));
+  panel.appendChild(gc);
+
+  // Track container
+  trackContainer = document.createElement('div');
+  trackContainer.style.display = 'flex';
+  trackContainer.style.flexDirection = 'column';
+  trackContainer.style.gap = '8px';
+  panel.appendChild(trackContainer);
+  buildTrackUI();
+
+  // Presets
+  const presetLabel = document.createElement('div');
+  presetLabel.className = 'subtitle';
+  presetLabel.textContent = t('presets');
+  presetLabel.style.marginTop = '4px';
+  panel.appendChild(presetLabel);
+
+  const presets = document.createElement('div');
+  presets.className = 'presets';
+  Object.keys(PRESETS).forEach(name => {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = name;
+    b.onclick = () => applyPreset(name);
+    presets.appendChild(b);
+  });
+  panel.appendChild(presets);
+
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  actions.style.marginTop = '4px';
+  const rndBtn = document.createElement('button');
+  rndBtn.className = 'btn accent';
+  rndBtn.textContent = t('random');
+  rndBtn.onclick = randomize;
+  actions.appendChild(rndBtn);
+  const mutBtn = document.createElement('button');
+  mutBtn.className = 'btn accent';
+  mutBtn.textContent = t('mutate');
+  mutBtn.onclick = mutate;
+  actions.appendChild(mutBtn);
+  panel.appendChild(actions);
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'info';
+  info.textContent = t('shortcuts');
+  panel.appendChild(info);
+}
+
+function buildTrackUI() {
+  if (!trackContainer) return;
+  trackContainer.innerHTML = '';
+  tracks.forEach((tk, i) => {
+    const div = document.createElement('div');
+    div.className = 'track';
+    div.dataset.track = i;
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'track-header';
+    const dot = document.createElement('div');
+    dot.className = 'track-dot';
+    dot.style.background = tk.color;
+    dot.style.boxShadow = `0 0 6px ${tk.color}`;
+    hdr.appendChild(dot);
+    const name = document.createElement('span');
+    name.className = 'track-name';
+    name.textContent = tk.name;
+    hdr.appendChild(name);
+    const muteBtn = document.createElement('button');
+    muteBtn.className = 'mute-btn' + (tk.muted ? ' muted' : '');
+    muteBtn.textContent = tk.muted ? t('muted') : t('mute');
+    muteBtn.onclick = () => {
+      tk.muted = !tk.muted;
+      muteBtn.className = 'mute-btn' + (tk.muted ? ' muted' : '');
+      muteBtn.textContent = tk.muted ? t('muted') : t('mute');
+    };
+    hdr.appendChild(muteBtn);
+    div.appendChild(hdr);
+
+    // Pattern dots
+    const dots = document.createElement('div');
+    dots.className = 'pattern-dots';
+    dots.dataset.trackDots = i;
+    renderDots(dots, tk);
+    div.appendChild(dots);
+
+    // Sliders
+    div.appendChild(makeSlider('BEAT', 0, tk.steps, tk.beats, 1, v => {
+      tk.beats = v;
+      updateAllPatterns();
+    }));
+    div.appendChild(makeSlider('STEP', 2, 32, tk.steps, 1, v => {
+      tk.steps = v;
+      tk.beats = Math.min(tk.beats, v);
+      tk.rotation = tk.rotation % v;
+      updateAllPatterns();
+      buildTrackUI();
+    }));
+    div.appendChild(makeSlider('ROT', 0, Math.max(tk.steps - 1, 0), tk.rotation, 1, v => {
+      tk.rotation = v;
+      updateAllPatterns();
+    }));
+    div.appendChild(makeSlider('VOL', 0, 100, Math.round(tk.volume * 100), 1, v => {
+      tk.volume = v / 100;
+    }, v => v + '%'));
+    div.appendChild(makeSlider('PAN', -100, 100, Math.round(tk.pan * 100), 1, v => {
+      tk.pan = v / 100;
+    }, v => {
+      if (v === 0) return 'C';
+      return v < 0 ? 'L' + Math.abs(v) : 'R' + v;
+    }));
+
+    trackContainer.appendChild(div);
+  });
+}
+
+function makeSlider(label, min, max, val, step, onChange, formatVal) {
+  const row = document.createElement('div');
+  row.className = 'control-row';
+  const lbl = document.createElement('label');
+  lbl.textContent = label;
+  row.appendChild(lbl);
+  const inp = document.createElement('input');
+  inp.type = 'range';
+  inp.min = min;
+  inp.max = max;
+  inp.value = val;
+  inp.step = step;
+  row.appendChild(inp);
+  const valSpan = document.createElement('span');
+  valSpan.className = 'val';
+  valSpan.textContent = formatVal ? formatVal(+val) : val;
+  row.appendChild(valSpan);
+  inp.oninput = () => {
+    const v = +inp.value;
+    valSpan.textContent = formatVal ? formatVal(v) : v;
+    onChange(v);
+  };
+  if (label === 'BPM') inp.dataset.role = 'bpm';
+  if (label === 'SWING') inp.dataset.role = 'swing';
+  return row;
+}
+
+function renderDots(container, track) {
+  container.innerHTML = '';
+  for (let i = 0; i < track.steps; i++) {
+    const d = document.createElement('div');
+    d.className = 'pdot' + (track.pattern[i] ? ' on' : '');
+    if (track.pattern[i]) d.style.background = track.color;
+    container.appendChild(d);
+  }
+}
+
+function updatePatternDots() {
+  tracks.forEach((t, i) => {
+    const container = document.querySelector(`[data-track-dots="${i}"]`);
+    if (container) renderDots(container, t);
+  });
+}
+
+function updatePlayBtn() {
+  const btn = document.getElementById('playBtn');
+  if (btn) {
+    btn.textContent = isPlaying ? t('stop') : t('play');
+    btn.className = 'btn' + (isPlaying ? ' active' : '');
+  }
+}
+
+function updateGlobalUI() {
+  const bpmSlider = document.querySelector('[data-role="bpm"]');
+  if (bpmSlider) {
+    bpmSlider.value = bpm;
+    bpmSlider.nextElementSibling.textContent = bpm;
+  }
+  const swingSlider = document.querySelector('[data-role="swing"]');
+  if (swingSlider) {
+    swingSlider.value = swing * 100;
+    swingSlider.nextElementSibling.textContent = Math.round(swing * 100) + '%';
+  }
+}
+
+// ── Keyboard ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  if (e.key === 'r' || e.key === 'R') randomize();
+  if (e.key === 'm' || e.key === 'M') mutate();
+  if (e.key === 't' || e.key === 'T') tapTempo();
+});
+
+// ── Init ──
+window.addEventListener('resize', resize);
+resize();
+updateAllPatterns();
+buildUI();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
